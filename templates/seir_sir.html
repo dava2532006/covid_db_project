@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEIR vs SIR Model Comparison - COVID-19</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 0;
+        }
+        
+        .nav-bar {
+            background: rgba(255, 255, 255, 0.98);
+            padding: 16px 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .back-btn {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        
+        .back-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateX(-4px);
+        }
+        
+        .back-btn::before {
+            content: "←";
+            font-size: 16px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        .header {
+            background: white;
+            padding: 32px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 12px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        
+        .controls {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        label {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        input, select {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button.analyze-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 700;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        button.analyze-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        
+        button.analyze-btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 24px;
+            background: #fff3cd;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-weight: 600;
+            border: 2px solid #ffc107;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        
+        @media (max-width: 1024px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            padding: 28px;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        }
+        
+        .card h2 {
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: 700;
+            color: #333;
+        }
+        
+        .chart {
+            min-height: 450px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .stat-label {
+            font-size: 13px;
+            opacity: 0.95;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .comparison-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            text-align: left;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 13px;
+        }
+        
+        .comparison-table td {
+            border-bottom: 1px solid #e0e0e0;
+            padding: 16px;
+            font-size: 15px;
+        }
+        
+        .comparison-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .seir-color {
+            color: #2ecc71;
+            font-weight: 700;
+        }
+        
+        .sir-color {
+            color: #3498db;
+            font-weight: 700;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 2px solid #fcc;
+            font-weight: 600;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 2px solid #90caf9;
+            font-weight: 600;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .tab-button {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .tab-button:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            font-weight: 600;
+            color: #856404;
+        }
+        
+        .warning-box strong {
+            color: #d39e00;
+            font-size: 18px;
+        }
+        
+        .impact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        
+        .impact-card {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+        }
+        
+        .impact-card.positive {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+        }
+        
+        .impact-card-title {
+            font-size: 14px;
+            opacity: 0.95;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .impact-card-value {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        
+        .impact-card-subtitle {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-content">
+            <a href="/" class="back-btn">Dashboard</a>
+            <h1 style="margin:0; font-size:18px; font-weight:700; color:#667eea;">SEIR vs SIR Model Analysis</h1>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🦠 SEIR vs SIR Model Comparison</h1>
+            <p>COVID-19 Epidemiological Model Analysis & Predictions</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('comparison')">📊 Model Comparison</button>
+            <button class="tab-button" onclick="switchTab('intervention')">💉 Vaccination Delay Impact</button>
+        </div>
+        
+        <!-- Tab 1: Model Comparison -->
+        <div id="comparison-tab" class="tab-content active">
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="country">Country</label>
+                <input type="text" id="country" value="US" placeholder="Enter country name">
+            </div>
+            <div class="control-group">
+                <label for="days">Forecast Days</label>
+                <input type="number" id="days" min="1" max="90" value="30">
+            </div>
+            <div class="control-group">
+                <label for="source">Data Source</label>
+                <select id="source">
+                    <option value="mongo">MongoDB</option>
+                    <option value="mysql">MySQL</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button class="analyze-btn" onclick="fetchData()">Analyze</button>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">
+            <p>⏳ Loading data and computing models...</p>
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="info" class="info" style="display: none;"></div>
+        
+        <div class="content" id="content" style="display: none;">
+            <div class="card">
+                <h2>📊 Model Predictions</h2>
+                <div id="chart" class="chart"></div>
+            </div>
+            
+            <div class="card">
+                <h2>📈 Model Statistics</h2>
+                <div class="stats-grid" id="statsGrid">
+                    <!-- Stats will be inserted here -->
+                </div>
+            </div>
+        </div>
+        
+        <div id="comparison" style="display: none;">
+            <div class="card">
+                <h2>🔍 Detailed Comparison</h2>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th><span class="seir-color">SEIR Model</span></th>
+                            <th><span class="sir-color">SIR Model</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparisonTable">
+                        <!-- Comparison rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+        
+        <!-- Tab 2: Vaccination Delay Impact -->
+        <div id="intervention-tab" class="tab-content">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="country-intervention">Country</label>
+                    <input type="text" id="country-intervention" value="Indonesia" placeholder="Enter country name">
+                </div>
+                <div class="control-group">
+                    <label for="vaccination-rate">Vaccination Rate (%/day)</label>
+                    <input type="number" id="vaccination-rate" min="0.1" max="5" step="0.1" value="0.5">
+                </div>
+                <div class="control-group">
+                    <label for="vaccination-start">Vaccination Start (Day)</label>
+                    <input type="number" id="vaccination-start" min="1" max="180" value="50">
+                </div>
+                <div class="control-group">
+                    <label for="cfr">Case Fatality Rate (%)</label>
+                    <input type="number" id="cfr" min="0.1" max="10" step="0.1" value="2.0">
+                </div>
+                <div class="control-group">
+                    <label>&nbsp;</label>
+                    <button class="analyze-btn" onclick="fetchIntervention()">Analyze Impact</button>
+                </div>
+            </div>
+            
+            <div id="loading-intervention" class="loading">
+                <p>⏳ Computing vaccination delay scenarios...</p>
+            </div>
+            
+            <div id="error-intervention" class="error" style="display: none;"></div>
+            
+            <div id="intervention-results" style="display: none;">
+                <div class="warning-box">
+                    <strong>⚠️ Vaccination Delay Impact</strong>
+                    <p id="key-insight" style="margin-top: 12px; font-size: 15px;"></p>
+                </div>
+                
+                <div class="impact-grid" id="impactGrid">
+                    <!-- Impact cards will be inserted here -->
+                </div>
+                
+                <div class="card" style="margin-top: 24px;">
+                    <h2>📉 Infections Over Time (Different Delay Scenarios)</h2>
+                    <div id="chart-intervention" class="chart"></div>
+                </div>
+                
+                <div class="card" style="margin-top: 24px;">
+                    <h2>💀 Additional Deaths by Vaccination Delay</h2>
+                    <div id="chart-deaths" class="chart" style="min-height: 350px;"></div>
+                </div>
+                
+                <div class="card" style="margin-top: 24px;">
+                    <h2>📋 Detailed Scenario Comparison</h2>
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Delay (Days)</th>
+                                <th>Vaccination Starts</th>
+                                <th>Peak Infected</th>
+                                <th>Total Infected</th>
+                                <th>Total Deaths</th>
+                                <th>Additional Deaths vs No Delay</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scenarioTable">
+                            <!-- Scenario rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        async function fetchData() {
+            const country = document.getElementById('country').value;
+            const days = document.getElementById('days').value;
+            const source = document.getElementById('source').value;
+            
+            if (!country.trim()) {
+                showError('Please enter a country name');
+                return;
+            }
+            
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const content = document.getElementById('content');
+            const comparison = document.getElementById('comparison');
+            
+            loading.classList.add('show');
+            error.style.display = 'none';
+            content.style.display = 'none';
+            comparison.style.display = 'none';
+            
+            try {
+                const response = await fetch(
+                    `/api/seir-sir/compare/${country}?days=${days}&source=${source}`
+                );
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    showError(data.error || `Error: ${response.status}`);
+                    return;
+                }
+                
+                const data = await response.json();
+                displayResults(data);
+            } catch (err) {
+                showError(`Network error: ${err.message}`);
+            } finally {
+                loading.classList.remove('show');
+            }
+        }
+        
+        function displayResults(data) {
+            // Prepare data for chart
+            const daysArray = Array.from({length: data.forecast_days}, (_, i) => i);
+            const seir_pred = data.seir.predictions;
+            const sir_pred = data.sir.predictions;
+            
+            // Create chart
+            const trace_seir = {
+                x: daysArray,
+                y: seir_pred,
+                mode: 'lines',
+                name: 'SEIR Model',
+                line: {color: '#2ecc71', width: 3}
+            };
+            
+            const trace_sir = {
+                x: daysArray,
+                y: sir_pred,
+                mode: 'lines',
+                name: 'SIR Model',
+                line: {color: '#3498db', width: 3, dash: 'dash'}
+            };
+            
+            const layout = {
+                title: `COVID-19 Predictions for ${data.country} (${data.forecast_days} days)`,
+                xaxis: {title: 'Days'},
+                yaxis: {title: 'Active Infected Cases'},
+                hovermode: 'x unified',
+                plot_bgcolor: '#f8f9fa',
+                paper_bgcolor: 'white'
+            };
+            
+            Plotly.newPlot('chart', [trace_seir, trace_sir], layout, {responsive: true});
+            
+            // Display statistics
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = `
+                <div class="stat-box">
+                    <div class="stat-label">SEIR Peak</div>
+                    <div class="stat-value">${data.seir.peak.toLocaleString()}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">SIR Peak</div>
+                    <div class="stat-value">${data.sir.peak.toLocaleString()}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">SEIR Peak Day</div>
+                    <div class="stat-value">Day ${data.seir.peak_day}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">SIR Peak Day</div>
+                    <div class="stat-value">Day ${data.sir.peak_day}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">SEIR R₀</div>
+                    <div class="stat-value">${data.seir.parameters.r0.toFixed(3)}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">SIR R₀</div>
+                    <div class="stat-value">${data.sir.parameters.r0.toFixed(3)}</div>
+                </div>
+            `;
+            
+            // Display comparison table
+            const comparisonTable = document.getElementById('comparisonTable');
+            comparisonTable.innerHTML = `
+                <tr>
+                    <td><strong>Peak Infections</strong></td>
+                    <td class="seir-color">${data.seir.peak.toLocaleString()}</td>
+                    <td class="sir-color">${data.sir.peak.toLocaleString()}</td>
+                </tr>
+                <tr>
+                    <td><strong>Peak Day</strong></td>
+                    <td class="seir-color">Day ${data.seir.peak_day}</td>
+                    <td class="sir-color">Day ${data.sir.peak_day}</td>
+                </tr>
+                <tr>
+                    <td><strong>R₀ (Reproduction Number)</strong></td>
+                    <td class="seir-color">${data.seir.parameters.r0.toFixed(3)}</td>
+                    <td class="sir-color">${data.sir.parameters.r0.toFixed(3)}</td>
+                </tr>
+                <tr>
+                    <td><strong>Incubation Period</strong></td>
+                    <td class="seir-color">${data.seir.parameters.incubation_days} days</td>
+                    <td class="sir-color">N/A (no E compartment)</td>
+                </tr>
+                <tr>
+                    <td><strong>Infectious Period</strong></td>
+                    <td class="seir-color">${data.seir.parameters.infectious_days} days</td>
+                    <td class="sir-color">${data.sir.parameters.infectious_days} days</td>
+                </tr>
+                <tr>
+                    <td><strong>Response Time</strong></td>
+                    <td colspan="2">${data.response_ms}ms (${data.source})</td>
+                </tr>
+            `;
+            
+            document.getElementById('content').style.display = 'grid';
+            document.getElementById('comparison').style.display = 'block';
+            
+            const info = document.getElementById('info');
+            info.innerHTML = `<strong>✓ Analysis Complete:</strong> ${data.comparison.recommendation}`;
+            info.style.display = 'block';
+        }
+        
+        function showError(message) {
+            document.getElementById('error').textContent = `❌ Error: ${message}`;
+            document.getElementById('error').style.display = 'block';
+        }
+        
+        // Load on page load
+        window.onload = () => {
+            document.getElementById('info').innerHTML = `
+                <strong>ℹ️ How to use:</strong> Enter a country name, set forecast days, and click "Analyze" 
+                to compare SEIR vs SIR models. SEIR includes incubation period (more realistic), while SIR is simpler.
+            `;
+            document.getElementById('info').style.display = 'block';
+        };
+        
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            if (tabName === 'comparison') {
+                document.getElementById('comparison-tab').classList.add('active');
+                document.querySelectorAll('.tab-button')[0].classList.add('active');
+            } else if (tabName === 'intervention') {
+                document.getElementById('intervention-tab').classList.add('active');
+                document.querySelectorAll('.tab-button')[1].classList.add('active');
+            }
+        }
+        
+        async function fetchIntervention() {
+            const country = document.getElementById('country-intervention').value;
+            const vaccinationRate = document.getElementById('vaccination-rate').value;
+            const vaccinationStart = document.getElementById('vaccination-start').value;
+            const cfr = document.getElementById('cfr').value;
+            
+            if (!country.trim()) {
+                showInterventionError('Please enter a country name');
+                return;
+            }
+            
+            const loading = document.getElementById('loading-intervention');
+            const error = document.getElementById('error-intervention');
+            const results = document.getElementById('intervention-results');
+            
+            loading.classList.add('show');
+            error.style.display = 'none';
+            results.style.display = 'none';
+            
+            try {
+                const response = await fetch(
+                    `/api/seir-sir/intervention/${country}?vaccination_rate=${vaccinationRate}&vaccination_start=${vaccinationStart}&cfr=${cfr}`
+                );
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    showInterventionError(data.error || `Error: ${response.status}`);
+                    return;
+                }
+                
+                const data = await response.json();
+                displayInterventionResults(data);
+            } catch (err) {
+                showInterventionError(`Network error: ${err.message}`);
+            } finally {
+                loading.classList.remove('show');
+            }
+        }
+        
+        function displayInterventionResults(data) {
+            // Display key insight
+            document.getElementById('key-insight').textContent = data.key_insights.message;
+            
+            // Display impact cards
+            const impactGrid = document.getElementById('impactGrid');
+            const delay30 = data.impacts.find(i => i.delay_days === 30);
+            const delay90 = data.impacts.find(i => i.delay_days === 90);
+            
+            impactGrid.innerHTML = `
+                <div class="impact-card positive">
+                    <div class="impact-card-title">Best Case (No Delay)</div>
+                    <div class="impact-card-value">Day ${data.parameters.vaccination_start_day}</div>
+                    <div class="impact-card-subtitle">Start vaccination immediately</div>
+                </div>
+                ${delay30 ? `
+                <div class="impact-card">
+                    <div class="impact-card-title">30-Day Delay Impact</div>
+                    <div class="impact-card-value">${Math.abs(delay30.additional_deaths).toLocaleString()}</div>
+                    <div class="impact-card-subtitle">Additional deaths</div>
+                </div>
+                ` : ''}
+                ${delay90 ? `
+                <div class="impact-card">
+                    <div class="impact-card-title">90-Day Delay Impact</div>
+                    <div class="impact-card-value">${Math.abs(delay90.additional_deaths).toLocaleString()}</div>
+                    <div class="impact-card-subtitle">Additional deaths</div>
+                </div>
+                ` : ''}
+                <div class="impact-card">
+                    <div class="impact-card-title">Lives Lost Per Day</div>
+                    <div class="impact-card-value">${Math.abs(data.impacts[0].deaths_per_day).toLocaleString()}</div>
+                    <div class="impact-card-subtitle">Every day counts!</div>
+                </div>
+            `;
+            
+            // Create infection timeseries chart
+            const traces = data.delay_scenarios.map(scenario => {
+                const color = scenario.delay_days === 0 ? '#2ecc71' : 
+                             scenario.delay_days === 7 ? '#3498db' :
+                             scenario.delay_days === 14 ? '#f39c12' :
+                             scenario.delay_days === 30 ? '#e67e22' :
+                             scenario.delay_days === 60 ? '#e74c3c' :
+                             '#c0392b';
+                
+                return {
+                    x: scenario.timeseries.days,
+                    y: scenario.timeseries.infected,
+                    mode: 'lines',
+                    name: `${scenario.delay_days} day delay`,
+                    line: {color: color, width: 2}
+                };
+            });
+            
+            const layout = {
+                title: `Infected Population Over Time - ${data.country}`,
+                xaxis: {title: 'Days'},
+                yaxis: {title: 'Number of Infected'},
+                hovermode: 'x unified',
+                plot_bgcolor: '#f8f9fa',
+                paper_bgcolor: 'white',
+                showlegend: true
+            };
+            
+            Plotly.newPlot('chart-intervention', traces, layout, {responsive: true});
+            
+            // Create deaths comparison bar chart
+            const deathsTrace = {
+                x: data.delay_scenarios.map(s => `${s.delay_days} days`),
+                y: data.delay_scenarios.map(s => s.total_deaths),
+                type: 'bar',
+                marker: {
+                    color: data.delay_scenarios.map((s, i) => {
+                        const ratio = i / (data.delay_scenarios.length - 1);
+                        return `rgba(231, 76, 60, ${0.5 + ratio * 0.5})`;
+                    })
+                },
+                text: data.delay_scenarios.map(s => s.total_deaths.toLocaleString()),
+                textposition: 'outside'
+            };
+            
+            const deathsLayout = {
+                title: 'Total Deaths by Vaccination Delay Scenario',
+                xaxis: {title: 'Vaccination Delay'},
+                yaxis: {title: 'Total Deaths'},
+                plot_bgcolor: '#f8f9fa',
+                paper_bgcolor: 'white'
+            };
+            
+            Plotly.newPlot('chart-deaths', [deathsTrace], deathsLayout, {responsive: true});
+            
+            // Fill scenario table
+            const scenarioTable = document.getElementById('scenarioTable');
+            scenarioTable.innerHTML = data.delay_scenarios.map(scenario => {
+                const additionalDeaths = scenario.total_deaths - data.baseline_scenario.total_deaths;
+                const rowClass = scenario.delay_days === 0 ? 'style="background: #d4edda;"' : '';
+                
+                return `
+                    <tr ${rowClass}>
+                        <td><strong>${scenario.delay_days} days</strong></td>
+                        <td>Day ${scenario.vaccination_day}</td>
+                        <td>${scenario.peak_infected.toLocaleString()}</td>
+                        <td>${scenario.total_infected.toLocaleString()}</td>
+                        <td>${scenario.total_deaths.toLocaleString()}</td>
+                        <td ${additionalDeaths > 0 ? 'style="color: #e74c3c; font-weight: 700;"' : 'style="color: #2ecc71; font-weight: 700;"'}>
+                            ${additionalDeaths > 0 ? '+' : ''}${additionalDeaths.toLocaleString()}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            document.getElementById('intervention-results').style.display = 'block';
+        }
+        
+        function showInterventionError(message) {
+            document.getElementById('error-intervention').textContent = `❌ Error: ${message}`;
+            document.getElementById('error-intervention').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

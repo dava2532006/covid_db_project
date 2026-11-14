@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard COVID-19 | MySQL vs MongoDB</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root { 
+    --bg:#f5f6f8; 
+    --card:#fff; 
+    --text:#1d2433; 
+    --muted:#6b7385; 
+    --line:#e3e6ec; 
+    --accent:#2563eb;
+    --accent-hover:#1d4ed8;
+    --seir-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { 
+      --bg:#12151c; 
+      --card:#1b202b; 
+      --text:#e8ebf2; 
+      --muted:#9aa3b5; 
+      --line:#2b3242; 
+      --accent:#6ea0ff;
+      --accent-hover:#5a8fef;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { 
+    margin:0; 
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif; 
+    background:var(--bg); 
+    color:var(--text); 
+  }
+  header { 
+    padding:20px 24px; 
+    background:var(--card);
+    border-bottom:1px solid var(--line);
+    box-shadow:0 2px 8px rgba(0,0,0,0.05);
+  }
+  .header-content {
+    max-width:1400px;
+    margin:0 auto;
+    display:flex; 
+    flex-wrap:wrap; 
+    gap:16px; 
+    align-items:center; 
+    justify-content:space-between;
+  }
+  h1 { 
+    font-size:24px; 
+    margin:0;
+    font-weight:700;
+    background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  .controls { 
+    display:flex; 
+    flex-wrap:wrap; 
+    gap:10px; 
+    align-items:center; 
+  }
+  select, button { 
+    padding:8px 12px; 
+    border-radius:8px; 
+    border:1px solid var(--line); 
+    background:var(--card); 
+    color:var(--text); 
+    font-size:14px;
+    cursor:pointer;
+    transition:all 0.2s ease;
+  }
+  select:hover, button:hover {
+    border-color:var(--accent);
+  }
+  .toggle button { cursor:pointer; }
+  .toggle button.on { 
+    background:var(--accent); 
+    color:#fff; 
+    border-color:var(--accent); 
+  }
+  .seir-btn {
+    background:var(--seir-gradient);
+    color:white;
+    border:none;
+    padding:10px 20px;
+    border-radius:8px;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+    transition:all 0.3s ease;
+    box-shadow:0 4px 12px rgba(102, 126, 234, 0.3);
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+  }
+  .seir-btn:hover {
+    transform:translateY(-2px);
+    box-shadow:0 6px 16px rgba(102, 126, 234, 0.4);
+  }
+  .seir-btn:active {
+    transform:translateY(0);
+  }
+  .seir-btn::before {
+    content:"🦠";
+    font-size:18px;
+  }
+  main { 
+    padding:24px; 
+    max-width:1400px;
+    margin:0 auto;
+  }
+  .kpis { 
+    display:grid; 
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); 
+    gap:16px;
+    margin-bottom:24px;
+  }
+  .card { 
+    background:var(--card); 
+    border:1px solid var(--line); 
+    border-radius:12px; 
+    padding:20px;
+    transition:all 0.2s ease;
+  }
+  .card:hover {
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    transform:translateY(-2px);
+  }
+  .kpi .label { 
+    color:var(--muted); 
+    font-size:13px;
+    font-weight:500;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+  }
+  .kpi .value { 
+    font-size:32px; 
+    font-weight:700; 
+    margin-top:8px;
+    background:var(--seir-gradient);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  .kpi .delta { 
+    color:var(--muted); 
+    font-size:12px; 
+    margin-top:6px;
+  }
+  .grid { 
+    display:grid; 
+    grid-template-columns:repeat(auto-fit,minmax(450px,1fr)); 
+    gap:20px; 
+  }
+  .card h2 { 
+    font-size:16px; 
+    margin:0 0 16px; 
+    display:flex; 
+    justify-content:space-between; 
+    align-items:center; 
+    gap:8px;
+    font-weight:600;
+  }
+  .ms { 
+    font-size:11px; 
+    font-weight:500; 
+    color:var(--muted); 
+    background:var(--bg); 
+    padding:4px 10px; 
+    border-radius:999px; 
+    white-space:nowrap; 
+  }
+  .chart { 
+    position:relative; 
+    height:320px; 
+  }
+  @media (max-width:768px) { 
+    .grid { 
+      grid-template-columns:1fr; 
+    }
+    .header-content {
+      flex-direction:column;
+      align-items:flex-start;
+    }
+    h1 {
+      font-size:20px;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-content">
+    <h1>🦠 Dashboard COVID-19</h1>
+    <div class="controls">
+      <button class="seir-btn" onclick="window.location.href='/seir-sir'">
+        SEIR/SIR Model
+      </button>
+      <span style="color:var(--muted);font-size:14px">Sumber data:</span>
+      <span class="toggle">
+        <button id="b-mongo" class="on">MongoDB (NoSQL)</button>
+        <button id="b-mysql">MySQL (SQL)</button>
+      </span>
+      <select id="metric">
+        <option value="confirmed">Terkonfirmasi</option>
+        <option value="deaths">Meninggal</option>
+        <option value="recovered">Sembuh</option>
+        <option value="active">Aktif</option>
+      </select>
+      <select id="country"></select>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="kpis" id="kpis"></div>
+  <div class="grid">
+    <div class="card"><h2>Tren global harian <span class="ms" id="ms-trend"></span></h2><div class="chart"><canvas id="c-trend"></canvas></div></div>
+    <div class="card"><h2>10 negara teratas <span class="ms" id="ms-top"></span></h2><div class="chart"><canvas id="c-top"></canvas></div></div>
+    <div class="card"><h2 id="t-country">Tren negara <span class="ms" id="ms-country"></span></h2><div class="chart"><canvas id="c-country"></canvas></div></div>
+    <div class="card"><h2>Ringkasan wilayah WHO <span class="ms" id="ms-who"></span></h2><div class="chart"><canvas id="c-who"></canvas></div></div>
+    <div class="card"><h2>10 negara bagian AS teratas <span class="ms" id="ms-usa"></span></h2><div class="chart"><canvas id="c-usa"></canvas></div></div>
+  </div>
+</main>
+
+<script>
+const LABEL = {confirmed:"Terkonfirmasi", deaths:"Meninggal", recovered:"Sembuh", active:"Aktif"};
+const COLOR = {confirmed:"#2563eb", deaths:"#dc2626", recovered:"#16a34a", active:"#f59e0b"};
+let source = "mongo";
+const charts = {};
+const fmt = n => (n ?? 0).toLocaleString("id-ID");
+
+async function api(path, msId) {
+  const sep = path.includes("?") ? "&" : "?";
+  const res = await fetch(`${path}${sep}source=${source}`);
+  const j = await res.json();
+  if (msId) document.getElementById(msId).textContent = `${j.source} - ${j.ms} ms`;
+  return j.data;
+}
+
+function draw(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  const muted = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim();
+  cfg.options = Object.assign({responsive:true, maintainAspectRatio:false}, cfg.options || {});
+  Chart.defaults.color = muted;
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+
+function lineDatasets(rows, keys) {
+  return keys.map(k => ({label:LABEL[k], data:rows.map(r => r[k]), borderColor:COLOR[k], pointRadius:0, borderWidth:2, tension:.2}));
+}
+
+async function loadKpis() {
+  const s = await api("/api/summary");
+  const items = [
+    ["Terkonfirmasi", s.confirmed, s.new_cases], ["Meninggal", s.deaths, s.new_deaths],
+    ["Sembuh", s.recovered, s.new_recovered], ["Aktif", s.active, null],
+  ];
+  document.getElementById("kpis").innerHTML = items.map(([l, v, d]) =>
+    `<div class="card kpi"><div class="label">${l}</div><div class="value">${fmt(v)}</div>
+     <div class="delta">${d != null ? "+" + fmt(d) + " hari terakhir" : "per " + s.date}</div></div>`).join("");
+}
+
+async function loadTrend() {
+  const rows = await api("/api/global-trend", "ms-trend");
+  draw("c-trend", {type:"line", data:{labels:rows.map(r => r.date),
+    datasets: lineDatasets(rows, ["confirmed","active","recovered","deaths"])},
+    options:{scales:{x:{ticks:{maxTicksLimit:8}}}, interaction:{mode:"index", intersect:false}}});
+}
+
+async function loadTop() {
+  const m = document.getElementById("metric").value;
+  const rows = await api(`/api/top-countries?metric=${m}&limit=10`, "ms-top");
+  draw("c-top", {type:"bar", data:{labels:rows.map(r => r.country),
+    datasets:[{label:LABEL[m], data:rows.map(r => r.value), backgroundColor:COLOR[m]}]},
+    options:{indexAxis:"y", plugins:{legend:{display:false}}}});
+}
+
+async function loadCountry() {
+  const name = document.getElementById("country").value;
+  if (!name) return;
+  document.getElementById("t-country").firstChild.textContent = `Tren ${name} `;
+  const rows = await api(`/api/country/${encodeURIComponent(name)}`, "ms-country");
+  draw("c-country", {type:"line", data:{labels:rows.map(r => r.date),
+    datasets: lineDatasets(rows, ["confirmed","deaths","recovered"])},
+    options:{scales:{x:{ticks:{maxTicksLimit:8}}}, interaction:{mode:"index", intersect:false}}});
+}
+
+async function loadWho() {
+  const rows = await api("/api/who-regions", "ms-who");
+  draw("c-who", {type:"bar", data:{labels:rows.map(r => r.who_region),
+    datasets:["confirmed","deaths","recovered"].map(k => ({label:LABEL[k], data:rows.map(r => r[k]), backgroundColor:COLOR[k]}))}});
+}
+
+async function loadUsa() {
+  const m = ["confirmed","deaths"].includes(document.getElementById("metric").value) ? document.getElementById("metric").value : "confirmed";
+  const rows = await api(`/api/usa-states?metric=${m}&limit=10`, "ms-usa");
+  draw("c-usa", {type:"bar", data:{labels:rows.map(r => r.state),
+    datasets:[{label:LABEL[m], data:rows.map(r => r.value), backgroundColor:COLOR[m]}]},
+    options:{indexAxis:"y", plugins:{legend:{display:false}}}});
+}
+
+async function loadCountries() {
+  const list = await api("/api/countries");
+  const sel = document.getElementById("country");
+  const keep = sel.value || "Indonesia";
+  sel.innerHTML = list.map(c => `<option>${c}</option>`).join("");
+  sel.value = list.includes(keep) ? keep : list[0];
+}
+
+async function loadAll() {
+  await loadCountries();
+  await Promise.all([loadKpis(), loadTrend(), loadTop(), loadCountry(), loadWho(), loadUsa()]);
+}
+
+function setSource(s) {
+  source = s;
+  document.getElementById("b-mongo").classList.toggle("on", s === "mongo");
+  document.getElementById("b-mysql").classList.toggle("on", s === "mysql");
+  loadAll();
+}
+document.getElementById("b-mongo").onclick = () => setSource("mongo");
+document.getElementById("b-mysql").onclick = () => setSource("mysql");
+document.getElementById("metric").onchange = () => { loadTop(); loadUsa(); };
+document.getElementById("country").onchange = loadCountry;
+loadAll();
+</script>
+</body>
+</html>
